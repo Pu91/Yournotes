@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosmoStore - Barcode Billing System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Barcode Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Excel Export Library (SheetJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Barcode Generator Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    
+    <style>
+        /* Cosmetic Pink Theme Colors */
+        :root {
+            --primary-color: #d63384; 
+            --secondary-color: #f06292;
+            --bg-color: #fff5f8;
+            --white: #ffffff;
+            --text-dark: #333;
+            --danger: #e74c3c;
+            --info: #3498db;
+            --warning: #f39c12;
+            --success: #27ae60;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            padding-bottom: 85px; 
+        }
+
+        header {
+            background: var(--primary-color);
+            color: white; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .store-name { font-size: 20px; font-weight: bold; }
+        .profile-icon { font-size: 24px; cursor: pointer; transition: 0.3s; }
+        .profile-icon:active { transform: scale(0.9); }
+
+        main { padding: 20px; }
+        .section-page { display: none; }
+        .active-page { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dashboard-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;
+        }
+
+        .menu-card {
+            background: var(--white); padding: 20px 10px; border-radius: 15px;
+            text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            cursor: pointer; transition: 0.3s; border: 1px solid #fce4ec;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .menu-card:active { transform: scale(0.95); }
+        .menu-card i { font-size: 32px; color: var(--primary-color); margin-bottom: 12px; }
+        .menu-card h3 { margin: 5px 0; font-size: 15px; font-weight: 600; }
+        .menu-card p { font-size: 11px; color: #888; margin: 0; }
+
+        .card-expired { border-left: 5px solid var(--danger); }
+        .card-low { border-left: 5px solid var(--warning); }
+        .card-no { border-left: 5px solid #555; }
+
+        .stats-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px;
+        }
+        .stat-box {
+            background: white; padding: 12px 5px; border-radius: 12px; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-bottom: 4px solid var(--primary-color);
+        }
+        .stat-box h4 { margin: 0; font-size: 11px; color: #777; text-transform: uppercase; }
+        .stat-box div { font-size: 16px; font-weight: bold; color: var(--primary-color); margin-top: 5px; }
+
+        .graph-container {
+            background: white; padding: 15px; border-radius: 15px; margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .form-group { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px;}
+        input, select {
+            width: 100%; padding: 12px; margin: 10px 0;
+            border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box;
+        }
+        .btn-main {
+            background: var(--primary-color); color: white; border: none;
+            width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+
+        #reader, #reader-sell, #reader-update {
+            width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: #eee;
+        }
+
+        .med-list-container { 
+            background: white; border-radius: 10px; overflow-x: auto; margin-top: 15px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .med-header {
+            display: grid; grid-template-columns: 60px 120px 70px 70px 180px;
+            background: #fce4ec; padding: 12px 10px; font-weight: bold; font-size: 13px;
+            border-bottom: 2px solid var(--primary-color); min-width: 500px;
+        }
+
+        .med-row {
+            display: grid; grid-template-columns: 60px 120px 70px 70px 180px;
+            padding: 10px; border-bottom: 1px solid #eee; align-items: center; min-width: 500px;
+        }
+
+        .med-row img { width: 40px; height: 40px; border-radius: 5px; object-fit: cover; }
+        .med-info h4 { margin: 0; font-size: 13px; }
+        .med-info span { font-size: 11px; color: #888; }
+        
+        .action-btns-cell { display: flex; gap: 8px; }
+        .btn-action { border: none; background: none; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 3px; }
+        .btn-view { color: var(--info); }
+        .btn-edit { color: var(--primary-color); }
+        .btn-del { color: var(--danger); }
+
+        .btn-download {
+            background: #27ae60; color: white; border: none; padding: 8px 12px;
+            border-radius: 5px; cursor: pointer; font-size: 12px; margin-bottom: 10px;
+        }
+
+        .btn-print-table {
+            background: #3498db; color: white; border: none; padding: 8px 12px;
+            border-radius: 5px; cursor: pointer; font-size: 12px; margin-bottom: 10px;
+        }
+
+        .search-popup {
+            background: white; border: 1px solid #eee; border-radius: 8px;
+            max-height: 200px; overflow-y: auto; position: absolute; width: 100%; z-index: 50; box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        }
+        .search-item { padding: 12px; border-bottom: 1px solid #f9f9f9; cursor: pointer; display: flex; justify-content: space-between; }
+        
+        .qty-selection-box {
+            background: #fce4ec; padding: 15px; border-radius: 10px; margin: 10px 0; display: none;
+        }
+
+        .update-card {
+            background: white; border-radius: 15px; padding: 20px; margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: none;
+        }
+        .update-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; border: 2px solid var(--primary-color); }
+        .stock-box-container {
+            display: flex; align-items: center; gap: 10px; margin-top: 15px;
+            background: #fff5f8; padding: 10px; border-radius: 10px;
+        }
+
+        .cart-box { background: #fff; padding: 15px; border-radius: 15px; margin-top: 20px; border: 1px solid var(--primary-color); }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; border-bottom: 1px dashed #ddd; padding-bottom: 5px; }
+
+        .report-container { background: white; border-radius: 10px; overflow-x: auto; margin-top: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .report-table { width: 100%; border-collapse: collapse; min-width: 400px; }
+        .report-table th, .report-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+        .report-table th { background: #fce4ec; color: var(--primary-color); font-weight: bold; }
+
+        #detailModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; width: 90%; max-width: 500px; border-radius: 15px; padding: 20px;
+            max-height: 80vh; overflow-y: auto; position: relative;
+        }
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer; color: #888; }
+
+        footer {
+            background: white; position: fixed; bottom: 0; width: 100%;
+            display: flex; justify-content: space-around; padding: 10px 0;
+            box-shadow: 0 -3px 15px rgba(0,0,0,0.08); border-top: 1px solid #eee;
+            z-index: 2000;
+        }
+        .foot-item { 
+            text-align: center; color: #aaa; cursor: pointer; 
+            font-size: 11px; font-weight: 500; transition: 0.3s;
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+        }
+        .foot-item.active { color: var(--primary-color); }
+        .foot-item i { font-size: 22px; margin-bottom: 4px; }
+
+        .message-box {
+            display: none; position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--primary-color); color: white; padding: 20px; border-radius: 10px;
+            text-align: center; z-index: 5000; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .btn-refresh {
+            background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
+        }
+
+        /* --- THERMAL INVOICE STYLES --- */
+        .invoice-wrapper {
+            background: white; padding: 15px; max-width: 300px; margin: auto; color: #000; 
+            font-size: 12px; font-family: 'Courier New', Courier, monospace;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-radius: 5px;
+        }
+        .inv-center { text-align: center; }
+        .inv-sep { border-bottom: 1px dashed #000; margin: 10px 0; }
+        .inv-store-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .inv-details { margin-bottom: 10px; line-height: 1.5; }
+        .inv-main-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .inv-main-table th, .inv-main-table td { padding: 5px 0; border: none; }
+        .inv-main-table th { border-bottom: 1px solid #000; border-top: 1px solid #000; text-align: left; }
+        .inv-main-table .text-right { text-align: right; }
+        .inv-main-table .text-center { text-align: center; }
+        .inv-totals { text-align: right; margin-top: 10px; line-height: 1.5; font-size: 13px; }
+        .inv-qr { text-align: center; margin: 15px 0; }
+        .inv-qr img { width: 120px; height: 120px; }
+        .inv-footer { text-align: center; font-size: 11px; margin-top: 10px; line-height: 1.4; }
+
+        /* --- BARCODE PREVIEW AREA --- */
+        #barcode-preview-area {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .print-barcode-item {
+            text-align: center; border: 1px dashed #ccc; padding: 10px; background: white; border-radius: 5px;
+        }
+
+        /* --- LOGIN PAGE STYLES --- */
+        #login-container {
+            display: flex; height: 100vh; justify-content: center; align-items: center;
+            background: var(--bg-color); z-index: 10000; position: fixed; top: 0; left: 0; width: 100%;
+        }
+        .login-box {
+            background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            width: 90%; max-width: 400px; text-align: center;
+        }
+
+        /* =========================================================
+           ADVANCED PRINTING LOGIC (ISOLATING INVOICE, BARCODE, TABLE)
+           ========================================================= */
+        @media print {
+            @page { margin: 0; } /* Remove default header/footer margins */
+            body { background: white !important; margin: 0; padding: 0; color: #000; }
+            header, footer, .no-print, button, input, select { display: none !important; }
+            
+            /* IMPORTANT: Hide all inactive pages to prevent extra blank pages */
+            .section-page:not(.active-page) { display: none !important; }
+            
+            body * { visibility: hidden; }
+
+            /* 1. PRINT INVOICE MODE */
+            body.print-invoice #page-invoice,
+            body.print-invoice #page-invoice *,
+            body.print-invoice .invoice-wrapper,
+            body.print-invoice .invoice-wrapper * { visibility: visible; }
+            body.print-invoice .invoice-wrapper { 
+                position: absolute; left: 0; top: 0; width: 100%; max-width: none; 
+                box-shadow: none; margin: 0; padding: 5px; border: none; 
+            }
+            
+            /* 2. PRINT BARCODE MODE */
+            body.print-barcode #barcode-preview-area,
+            body.print-barcode #barcode-preview-area * { visibility: visible; }
+            body.print-barcode #barcode-preview-area { 
+                position: absolute; left: 0; top: 0; width: 100%; 
+                display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10mm; 
+            }
+
+            /* 3. PRINT TABLE MODE (Inventory, Low Stock, Reports etc) */
+            body.print-table .active-page, 
+            body.print-table .active-page * { visibility: visible; }
+            body.print-table .active-page { position: absolute; left: 0; top: 0; width: 100%; padding: 10px; }
+            body.print-table .action-btns-cell { display: none !important; } /* Hide action column */
+            body.print-table .med-list-container { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+            body.print-table .med-header, body.print-table .med-row {
+                grid-template-columns: 60px 2fr 1fr 1fr !important; /* Adjust columns for A4 without action buttons */
+                min-width: 100%; border-bottom: 1px solid #000;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sound Effects -->
+    <audio id="sound-success" src="blinkit audio.mp3"></audio>
+    <audio id="sound-error" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
+
+    <!-- LOGIN CONTAINER -->
+    <div id="login-container">
+        <div class="login-box">
+            <h2 style="color:var(--primary-color); margin-top:0;">Apna billing</h2>
+            <p style="color:#777; margin-bottom:20px; font-size:14px;">Admin Login Panel sdf privat limited</p>
+            <input type="email" id="login-email" placeholder="Email Address" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px;">
+            <input type="password" id="login-password" placeholder="Password" style="width:100%; padding:12px; margin-bottom:20px; border:1px solid #ddd; border-radius:8px;">
+            <button class="btn-main" onclick="loginUser()">LOGIN</button>
+        </div>
+    </div>
+
+    <!-- WRAP THE REST OF THE APP IN A CONTAINER HIDDEN BY DEFAULT -->
+    <div id="app-content" style="display: none;">
+
+        <div id="msgBox" class="message-box">
+            <p id="msgText">Saved Successfully!</p>
+            <button onclick="closeMsg()" style="background:white; border:none; padding:10px 20px; border-radius:5px; color:var(--primary-color); font-weight:bold; cursor:pointer;">OK</button>
+        </div>
+
+        <!-- Modal for Views -->
+        <div id="detailModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeDetailModal()">&times;</span>
+                <div id="modal-data-render" style="overflow-x:auto;"></div>
+            </div>
+        </div>
+
+        <!-- Customer Form Modal -->
+        <div id="customerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:4000; justify-content:center; align-items:center;">
+            <div class="modal-content" style="max-width:400px;">
+                <h3 style="color:var(--primary-color); margin-top:0;">Customer Details (Optional)</h3>
+                <input type="text" id="cust-name" placeholder="Customer Name (Optional)">
+                <div style="display:flex; gap:10px;">
+                    <input type="number" id="cust-age" placeholder="Age">
+                    <select id="cust-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+                </div>
+                <input type="number" id="cust-phone" placeholder="Mobile Number (Optional)">
+                <button class="btn-main" onclick="finalizeSaleAndInvoice()">SELL & PRINT BILL</button>
+                <button onclick="document.getElementById('customerModal').style.display='none'" style="width:100%; margin-top:10px; background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">Cancel</button>
+            </div>
+        </div>
+
+        <header>
+            <div class="store-name">SDF private limited</div>
+            <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+            <!-- PROFILE ICON TO LOGOUT -->
+            <div class="profile-icon" onclick="logoutUser()" title="Logout"><i class="fas fa-user-circle"></i></div>
+        </header>
+
+        <main>
+            <!-- HOME DASHBOARD PAGE -->
+            <section id="page-home" class="section-page active-page">
+                <h2 style="margin-top:0; color: #555;">Dashboard</h2>
+                
+                <div class="dashboard-grid">
+                    <div class="menu-card" onclick="goToPage('page-add-med')">
+                        <i class="fas fa-plus-circle"></i>
+                        <h3>Add Product</h3>
+                        <p>New Entry</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-view-med')">
+                        <i class="fas fa-boxes-stacked"></i>
+                        <h3>View Stock</h3>
+                        <p id="total-med-count">Total: 0</p>
+                    </div>
+                    <!-- STOCK UPDATE CARD -->
+                    <div class="menu-card" onclick="goToPage('page-update-stock')">
+                        <i class="fas fa-pen-to-square" style="color:var(--success)"></i>
+                        <h3 style="color:var(--success)">Update Stock</h3>
+                        <p>Edit & Add Stock</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-sell')">
+                        <i class="fas fa-cart-shopping"></i>
+                        <h3>Sell Page</h3>
+                        <p>New Bill</p>
+                    </div>
+                    <!-- Barcode Gen Card -->
+                    <div class="menu-card" onclick="goToPage('page-barcode-gen')">
+                        <i class="fas fa-barcode"></i>
+                        <h3>Generate Barcode</h3>
+                        <p>Print Tags</p>
+                    </div>
+                    <!-- Website Card -->
+                    <div class="menu-card" onclick="window.open('https://zesty-brioche-6ec6cb.netlify.app', '_blank')">
+                        <i class="fas fa-globe" style="color: #3498db;"></i>
+                        <h3>Visit Website</h3>
+                        <p>Open Link</p>
+                    </div>
+                    <!-- NEW: ADD LOOSE PRODUCT CARD -->
+                    <div class="menu-card" onclick="goToPage('page-add-loose')">
+                        <i class="fas fa-balance-scale" style="color: #e67e22;"></i>
+                        <h3 style="color: #e67e22;">Add Loose Product</h3>
+                        <p>Kg / Gram Items</p>
+                    </div>
+                    <!-- NEW: VIEW LOOSE STOCK CARD -->
+                    <div class="menu-card" onclick="goToPage('page-view-loose')">
+                        <i class="fas fa-list" style="color: #8e44ad;"></i>
+                        <h3 style="color: #8e44ad;">View Loose Stock</h3>
+                        <p>Manage Loose Items</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid" style="margin-top:25px;">
+                    <div class="menu-card card-expired" onclick="goToPage('page-expired')">
+                        <i class="fas fa-calendar-xmark" style="color:var(--danger)"></i>
+                        <h3>Expired</h3>
+                        <p id="expiry-count" style="color:var(--danger); font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card card-low" onclick="goToPage('page-lowstock')">
+                        <i class="fas fa-battery-quarter" style="color:var(--warning)"></i>
+                        <h3>Low Stock</h3>
+                        <p id="low-count" style="color:var(--warning); font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card card-no" onclick="goToPage('page-nostock')">
+                        <i class="fas fa-circle-exclamation" style="color:#555"></i>
+                        <h3>No Stock</h3>
+                        <p id="no-count" style="color:#555; font-weight:bold;">0 items</p>
+                    </div>
+                    <div class="menu-card" onclick="goToPage('page-report')">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Reports</h3>
+                        <p>Sales Data</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- NEW: ADD LOOSE PRODUCT PAGE -->
+            <section id="page-add-loose" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2 id="l-form-title">Add Loose Product</h2>
+                <div class="form-group">
+                    <input type="hidden" id="edit-l-id">
+                    <input type="text" id="l-name" placeholder="Product Name (e.g., Sugar, Dal)">
+                    <input type="number" id="l-price" placeholder="Price (per 1000gm / 1 Kg)">
+                    <input type="number" id="l-stock" placeholder="Stock Quantity (in Kg)" step="any">
+                    <input type="text" id="l-cat" placeholder="Category (e.g., Grocery)">
+                    <input type="text" id="l-img" placeholder="Image URL (Optional)">
+                    <button class="btn-main" onclick="saveLooseProduct()" style="background:#e67e22;">SAVE LOOSE PRODUCT</button>
+                </div>
+            </section>
+
+            <!-- NEW: VIEW LOOSE STOCK PAGE -->
+            <section id="page-view-loose" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>View Loose Products</h2>
+                <div class="med-list-container">
+                    <div class="med-header" style="background:#fcf3eb;">
+                        <div>Image</div><div>Name</div><div>Price/Kg</div><div>Stock(Kg)</div><div class="action-btns-cell">Actions</div>
+                    </div>
+                    <div id="loose-list-render"></div>
+                </div>
+            </section>
+
+            <!-- UPDATE STOCK PAGE -->
+            <section id="page-update-stock" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>Update Stock</h2>
+                <div class="form-group">
+                    <div id="reader-update"></div>
+                    <button onclick="startScanner('stock-search-input', false, true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
+                    <div style="position:relative;">
+                        <input type="text" id="stock-search-input" placeholder="Search by name or barcode..." onkeyup="searchToUpdate()">
+                        <div id="update-popup" class="search-popup"></div>
+                    </div>
+                </div>
+
+                <div id="update-result-card" class="update-card">
+                    <div style="display:flex; gap:15px; align-items:flex-start;">
+                        <img id="u-img" class="update-img" src="">
+                        <div style="flex:1;">
+                            <h3 id="u-name" style="margin:0; color:var(--primary-color);">Product Name</h3>
+                            <p id="u-barcode" style="margin:5px 0; font-size:12px; color:#777;">Barcode: ---</p>
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button class="btn-action btn-view" id="u-view-btn"><i class="fas fa-eye"></i> View</button>
+                                <button class="btn-action btn-edit" id="u-edit-btn"><i class="fas fa-edit"></i> Edit</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-box-container">
+                        <div style="flex:1;">
+                            <span style="font-size:12px; color:#888;">Current Stock:</span>
+                            <div id="u-current-stock" style="font-size:20px; font-weight:bold; color:var(--primary-color);">0</div>
+                        </div>
+                        <div style="flex:1.5;">
+                            <span style="font-size:12px; color:#888;">Add Quantity:</span>
+                            <!-- step="any" allow decimals for loose stock -->
+                            <input type="number" id="u-new-qty" value="0" step="any" style="margin:5px 0; padding:8px;">
+                        </div>
+                    </div>
+                    <button class="btn-main" style="margin-top:15px;" onclick="saveStockQuick()">UPDATE STOCK NOW</button>
+                </div>
+            </section>
+
+            <!-- BARCODE GENERATOR PAGE -->
+            <section id="page-barcode-gen" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>Barcode Generator</h2>
+                <div class="form-group no-print">
+                    <input type="text" id="gen-barcode-text" placeholder="Enter Barcode Text (e.g. 100203)">
+                    <input type="number" id="gen-barcode-qty" placeholder="How many barcodes? (e.g. 20)">
+                    <button class="btn-main" onclick="prepareBarcodePrint()"><i class="fas fa-eye"></i> GENERATE PREVIEW</button>
+                    <button id="btn-actual-print" class="btn-main" style="display:none; margin-top:10px; background:#27ae60;" onclick="triggerPrint('print-barcode')"><i class="fas fa-print"></i> PRINT A4 BARCODES</button>
+                </div>
+                
+                <div id="barcode-preview-area"></div>
+            </section>
+
+            <!-- ADD PRODUCT PAGE -->
+            <section id="page-add-med" class="section-page">
+                <button onclick="goToPage('page-home')" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2 id="form-title">Add New Product</h2>
+                <div class="form-group">
+                    <div id="reader"></div>
+                    <button onclick="startScanner('m-barcode')" style="background:#444; color:white; border:none; padding:10px; border-radius:8px; width:100%; margin-bottom:10px;"><i class="fas fa-camera"></i> SCAN BARCODE</button>
+                    <input type="hidden" id="edit-id">
+                    <input type="text" id="m-barcode" placeholder="Barcode Number">
+                    <input type="text" id="m-name" placeholder="Product Name">
+                    <input type="number" id="m-price" placeholder="MRP (Price)">
+                    <input type="number" id="m-rate" placeholder="Sale Rate">
+                    <input type="number" id="m-stock" placeholder="Stock Quantity">
+                    <label style="font-size: 12px; color: #777;">Expiry Date:</label>
+                    <input type="date" id="m-expiry">
+                    <input type="text" id="m-cat" placeholder="Category">
+                    <input type="text" id="m-img" placeholder="Image URL">
+                    <button class="btn-main" onclick="saveMedicine()">SAVE PRODUCT</button>
+                </div>
+            </section>
+
+            <!-- VIEW STOCK PAGE -->
+            <section id="page-view-med" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Inventory</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download" onclick="exportStockToExcel()"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
+                </div>
+                <input type="text" id="search-med" class="no-print" placeholder="Search by name..." onkeyup="filterMeds()">
+                <div class="med-list-container">
+                    <div class="med-header">
+                        <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div class="action-btns-cell">Actions</div>
+                    </div>
+                    <div id="med-list-render"></div>
+                </div>
+            </section>
+
+            <!-- SELL PAGE -->
+            <section id="page-sell" class="section-page">
+                <h2>Create Billing</h2>
+                <div class="form-group">
+                    <div id="reader-sell"></div>
+                    <button onclick="startScanner('sell-barcode', true)" style="background:#444; color:white; border:none; padding:12px; border-radius:8px; width:100%; margin-bottom:10px; font-weight:bold;"><i class="fas fa-barcode"></i> SCAN PRODUCT</button>
+                    
+                    <!-- GENERAL PRODUCT SEARCH -->
+                    <div style="position:relative;">
+                        <input type="text" id="sell-search" placeholder="Manual Search Product..." onkeyup="searchToSell()">
+                        <div id="sell-popup" class="search-popup"></div>
+                    </div>
+
+                    <!-- NEW: LOOSE PRODUCT SEARCH ONLY -->
+                    <div style="position:relative; margin-top: 10px;">
+                        <input type="text" id="sell-loose-search" placeholder="Search Loose Product (Kg/Gm)..." onkeyup="searchLooseToSell()" style="border: 1px solid #e67e22;">
+                        <div id="sell-loose-popup" class="search-popup"></div>
+                    </div>
+                    
+                    <input type="hidden" id="sell-barcode">
+                </div>
+
+                <div id="qty-box" class="qty-selection-box">
+                    <h4 id="selected-med-name" style="margin:0 0 10px 0; color:var(--primary-color);">Product Name</h4>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <!-- step="any" allowed here so loose products can be sold in fractions -->
+                        <input type="number" id="input-qty" placeholder="Qty" min="0" step="any" style="margin:0; flex:1;">
+                        <!-- GM / KG Dropdown (Only shows for loose products) -->
+                        <select id="loose-unit" style="display:none; margin:0; width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="gm">Gm</option>
+                            <option value="kg">Kg</option>
+                        </select>
+                        <button onclick="confirmAddToCart()" style="background:var(--primary-color); color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">ADD</button>
+                        <button onclick="cancelSelection()" style="background:#ccc; border:none; padding:10px; border-radius:8px; cursor:pointer;">X</button>
+                    </div>
+                </div>
+
+                <div class="cart-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Cart List</h3>
+                        <button onclick="resetCart()" style="color:red; background:none; border:none; cursor:pointer;"><i class="fas fa-trash-alt"></i> Reset</button>
+                    </div>
+                    <div id="cart-render" style="margin-top:10px;"></div>
+                    <hr>
+                    <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="subtotal">0</span></div>
+                    
+                    <!-- FLAT DISCOUNT ADDED HERE ALONGSIDE PERCENTAGE -->
+                    <div style="display:flex; gap:10px; margin-top: 10px;">
+                        <input type="number" id="discount" placeholder="Discount (%)" value="0" oninput="calculateTotal()" style="margin:0;">
+                        <input type="number" id="discount-amt" placeholder="Discount (₹ Amt)" value="0" oninput="calculateTotal()" style="margin:0; border-color: #3498db;">
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; color:var(--primary-color); margin-top:10px;">
+                        <span>Grand Total:</span><span id="grand-total">0</span>
+                    </div>
+                    <select id="pay-mode"><option value="Offline">Cash</option><option value="Online">Online</option></select>
+                    <button class="btn-main" onclick="openCustomerForm()">CONFIRM SALE (PAY)</button>
+                </div>
+            </section>
+
+            <!-- THERMAL INVOICE PAGE -->
+            <section id="page-invoice" class="section-page">
+                <div class="no-print" style="margin-bottom:15px; display:flex; gap:10px; justify-content:center;">
+                    <button onclick="goToPage('page-sell')" style="background:#444; color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <!-- USB OTG PRINT BUTTON -->
+                    <button onclick="printThermalReceipt()" style="background:var(--primary-color); color:white; padding:10px; border-radius:5px; border:none; cursor:pointer; width:100%;"><i class="fas fa-print"></i> Print Receipt</button>
+                </div>
+
+                <div class="invoice-wrapper" id="receipt-print-area">
+                    <div class="inv-center">
+                        <div style="margin-bottom: 5px;"><img src="https://cdn-icons-png.flaticon.com/512/3258/3258546.png" style="width: 40px;" alt="Logo"></div>
+                        <div class="inv-store-name">sdf private limited</div>
+                        <div style="font-size:11px;">city-kolkata, pin- 743355, India<br>Mob: +91 8798153104</div>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <div class="inv-details">
+                        Date: <span id="inv-date-display">---</span><br>
+                        Bill: #<span id="inv-no-display">---</span><br>
+                        Cust: <span id="inv-cust-name">---</span><br>
+                        Phone: <span id="inv-cust-phone">---</span>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <table class="inv-main-table">
+                        <thead>
+                            <tr>
+                                <th width="60%">Items</th>
+                                <th width="15%" class="text-center">Qty</th>
+                                <th width="25%" class="text-right">Amt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-items-render"></tbody>
+                    </table>
+                    <div class="inv-sep"></div>
+                    <div class="inv-totals">
+                        Sub Total: Rs.<span id="inv-sub-display">0.00</span><br>
+                        <!-- INVOICE UPDATED TO SHOW FLAT DISCOUNT AS WELL -->
+                        Discount: <span id="inv-disc-percent">0</span>% | Rs.<span id="inv-disc-amt">0.00</span><br>
+                        <div class="inv-sep" style="margin: 5px 0 5px auto; width: 60%;"></div>
+                        <b style="font-size: 15px;">TOTAL: Rs.<span id="inv-total-display">0.00</span></b>
+                    </div>
+                    <div class="inv-qr">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=paytmqr6szv5j@ptys&pn=suraj molla&cu=INR" alt="UPI QR">
+                        <div style="font-size:11px; margin-top:5px; font-weight: bold;">SCAN TO PAY VIA UPI</div>
+                    </div>
+                    <div class="inv-sep"></div>
+                    <div class="inv-footer">
+                        *** THANK YOU ! VISIT AGAIN ***<br>
+                        Goods once sold
+                    </div>
+                </div>
+            </section>
+
+            <!-- REPORT PAGE -->
+            <section id="page-report" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Sales Analysis</h2>
+                    <button class="btn-print-table no-print" onclick="triggerPrint('print-table')" style="margin-bottom:0;"><i class="fas fa-print"></i> Print Reports</button>
+                </div>
+                
+                <div class="stats-row no-print">
+                    <div class="stat-box"><h4>Today</h4><div id="stat-today">0</div></div>
+                    <div class="stat-box"><h4>Yesterday</h4><div id="stat-yest">0</div></div>
+                    <div class="stat-box"><h4>Monthly</h4><div id="stat-month">0</div></div>
+                </div>
+
+                <div class="graph-container no-print">
+                    <canvas id="salesChart" height="200"></canvas>
+                </div>
+
+                <div class="no-print" style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-download" onclick="exportSalesReport('today')"><i class="fas fa-file-excel"></i> Today XL</button>
+                    <button class="btn-download" onclick="exportSalesReport('yesterday')"><i class="fas fa-file-excel"></i> Yesterday XL</button>
+                    <button class="btn-download" onclick="exportSalesReport('month')"><i class="fas fa-file-excel"></i> Monthly XL</button>
+                </div>
+
+                <input type="date" id="report-date" class="no-print" onchange="loadReport()" style="margin-top:15px;">
+                <div class="form-group" style="margin-top:10px; background:var(--primary-color); color:white; text-align:center;">
+                    <h3 id="report-total-amt">Total Sale: 0</h3>
+                </div>
+                
+                <div class="report-container">
+                    <table class="report-table">
+                        <thead><tr><th>SL</th><th>Customer</th><th>Amount</th><th class="action-btns-cell">Action</th></tr></thead>
+                        <tbody id="report-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- EXPIRED PRODUCTS PAGE -->
+            <section id="page-expired" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('expired')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
+                </div>
+                <h2>Expired Products</h2>
+                <div class="med-list-container">
+                    <div class="med-header" style="background:#ffdada;">
+                        <div>Image</div><div>Name</div><div>Price</div><div>Stock</div><div>Expiry Date</div>
+                    </div>
+                    <div id="expired-list"></div>
+                </div>
+            </section>
+
+            <!-- LOW STOCK PAGE -->
+            <section id="page-lowstock" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('low')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
+                </div>
+                <h2>Low Stock Products</h2>
+                <div class="med-list-container">
+                    <div id="lowstock-list"></div>
+                </div>
+            </section>
+
+            <!-- NO STOCK PAGE -->
+            <section id="page-nostock" class="section-page">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="goToPage('page-home')" class="no-print" style="border:none; background:none; color:var(--primary-color); cursor:pointer;"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-print-table no-print" onclick="triggerPrint('print-table')"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn-download no-print" onclick="exportFilteredToExcel('no')"><i class="fas fa-file-excel"></i> Download XL</button>
+                    </div>
+                </div>
+                <h2>Out of Stock Products</h2>
+                <div class="med-list-container">
+                    <div id="nostock-list"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="no-print">
+            <div class="foot-item active" onclick="goToPage('page-home')">
+                <i class="fas fa-house"></i>
+                <span>Home</span>
+            </div>
+            <div class="foot-item" onclick="goToPage('page-view-med')">
+                <i class="fas fa-layer-group"></i>
+                <span>Stock</span>
+            </div>
+            <div class="foot-item" onclick="goToPage('page-sell')">
+                <i class="fas fa-cart-plus"></i>
+                <span>Sell</span>
+            </div>
+            <div class="foot-item" onclick="goToPage('page-report')">
+                <i class="fas fa-file-invoice"></i>
+                <span>Report</span>
+            </div>
+        </footer>
+    </div> <!-- END APP CONTENT -->
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, where, serverTimestamp } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // FIREBASE AUTH IMPORT
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
+          authDomain: "cosmatic-a7f73.firebaseapp.com",
+          databaseURL: "https://cosmatic-a7f73-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "cosmatic-a7f73",
+          storageBucket: "cosmatic-a7f73.appspot.com",
+          messagingSenderId: "693000942896",
+          appId: "1:693000942896:web:5208e137c75e62749c44f5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app); // INITIALIZE AUTH
+
+        let medicines = []; let cart =[]; let salesList = []; let allSalesForExport =[];
+        let html5QrCode = null; let myChart = null; let tempSelectedMed = null; let selectedMedForUpdate = null;
+
+        // USB PRINTING VARIABLES (To hold connection)
+        let printDevice = null;
+        let printInterface = null;
+        let printEndpoint = null;
+
+        const playSuccess = () => { try { document.getElementById('sound-success').play(); } catch(e){} };
+        const playError = () => { try { document.getElementById('sound-error').play(); } catch(e){} };
+
+        // --- AUTHENTICATION LOGIC ---
+        window.loginUser = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            if(!email || !pass) return alert("Please enter email and password!");
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                // login success, auth state change will handle ui
+            } catch (err) {
+                alert("Login Failed: " + err.message);
+            }
+        };
+
+        window.logoutUser = async () => {
+            if(confirm("Are you sure you want to logout?")) {
+                await signOut(auth);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if(user) {
+                // LOGGED IN: Hide Login Page, Show Main App
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+            } else {
+                // LOGGED OUT: Show Login Page, Hide Main App
+                document.getElementById('login-container').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
+            }
+        });
+
+        // --- MASTER PRINT FUNCTION ---
+        window.triggerPrint = (modeClass) => {
+            document.body.classList.add(modeClass);
+            window.print();
+            setTimeout(() => { document.body.classList.remove(modeClass); }, 500);
+        };
+
+        // --- NEW: USB OTG THERMAL PRINTING LOGIC (WebUSB API + QR Code + One Time Connect) ---
+        window.printThermalReceipt = async () => {
+            try {
+                if (!navigator.usb) {
+                    alert("আপনার ব্রাউজারে ডাইরেক্ট USB সাপোর্ট নেই! (দয়া করে Android Chrome ব্রাউজার ব্যবহার করুন)। \n\nবিকল্প হিসেবে নরমাল সিস্টেম প্রিন্ট পেজ ওপেন করা হচ্ছে...");
+                    triggerPrint('print-invoice');
+                    return;
+                }
+
+                // Gather data from the page
+                const invNo = document.getElementById('inv-no-display').innerText;
+                const date = document.getElementById('inv-date-display').innerText;
+                const custName = document.getElementById('inv-cust-name').innerText;
+                const custPhone = document.getElementById('inv-cust-phone').innerText;
+                const subtotal = document.getElementById('inv-sub-display').innerText;
+                const discPercent = document.getElementById('inv-disc-percent').innerText;
+                const discAmt = document.getElementById('inv-disc-amt').innerText;
+                const total = document.getElementById('inv-total-display').innerText;
+
+                let receiptText = "";
+                const ESC = "\x1B";
+                const LF = "\x0A";
+                const INIT = ESC + "@";
+                const ALIGN_CENTER = ESC + "a" + "\x01";
+                const ALIGN_LEFT = ESC + "a" + "\x00";
+                const BOLD_ON = ESC + "E" + "\x01";
+                const BOLD_OFF = ESC + "E" + "\x00";
+
+                receiptText += INIT;
+                receiptText += ALIGN_CENTER + BOLD_ON + "sdf private limited" + LF;
+                receiptText += BOLD_OFF + "City - kolkata, PIN - 743355, India" + LF;
+                receiptText += "Mob: +91 8798153104" + LF;
+                receiptText += "--------------------------------" + LF; 
+                
+                receiptText += ALIGN_LEFT;
+                receiptText += "Date: " + date + LF;
+                receiptText += "Bill No: #" + invNo + LF;
+                if(custName !== "---" && custName !== "Walk-in") receiptText += "Cust: " + custName + LF;
+                if(custPhone !== "---" && custPhone !== "N/A") receiptText += "Phone: " + custPhone + LF;
+                receiptText += "--------------------------------" + LF;
+                
+                receiptText += "Item          Qty       Amt" + LF;
+                receiptText += "--------------------------------" + LF;
+
+                const rows = document.querySelectorAll('#inv-items-render tr');
+                rows.forEach(row => {
+                    const cols = row.querySelectorAll('td');
+                    if(cols.length === 3) {
+                        let nameSpan = cols[0].querySelector('.item-name-part');
+                        let smallSpan = cols[0].querySelector('small');
+                        let fullName = nameSpan ? nameSpan.innerText : cols[0].innerText;
+                        let subDetails = smallSpan ? smallSpan.innerText : "";
+                        
+                        let name = fullName.substring(0, 12).padEnd(12, " ");
+                        let qty = cols[1].innerText.padEnd(6, " ");
+                        let amt = cols[2].innerText.padStart(8, " ");
+                        receiptText += name + "  " + qty + "  " + amt + LF;
+                        if (subDetails) {
+                            receiptText += "  " + subDetails + LF;
+                        }
+                    }
+                });
+
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_LEFT + "Sub Total: Rs." + subtotal + LF;
+                if(parseFloat(discPercent)>0 || parseFloat(discAmt)>0) {
+                    receiptText += "Discount: " + discPercent + "% | Rs." + discAmt + LF;
+                }
+                receiptText += "--------------------------------" + LF;
+                receiptText += ALIGN_CENTER + BOLD_ON + "TOTAL: Rs." + total + LF + BOLD_OFF;
+                receiptText += "--------------------------------" + LF;
+
+                // CONNECT TO USB DEVICE ONLY ONCE
+                if (!printDevice) {
+                    let devices = await navigator.usb.getDevices();
+                    if (devices.length > 0) {
+                        printDevice = devices[0];
+                    } else {
+                        printDevice = await navigator.usb.requestDevice({ filters: [] });
+                    }
+                    
+                    await printDevice.open();
+                    
+                    if (printDevice.configuration === null) {
+                        await printDevice.selectConfiguration(1);
+                    }
+                    
+                    let interfaceNumber = null;
+                    let endpointNumber = null;
+                    
+                    for (const iface of printDevice.configuration.interfaces) {
+                        for (const alt of iface.alternates) {
+                            for (const endpoint of alt.endpoints) {
+                                if (endpoint.direction === 'out') {
+                                    interfaceNumber = iface.interfaceNumber;
+                                    endpointNumber = endpoint.endpointNumber;
+                                    break;
+                                }
+                            }
+                            if (endpointNumber !== null) break;
+                        }
+                        if (endpointNumber !== null) break;
+                    }
+                    
+                    if (interfaceNumber === null || endpointNumber === null) {
+                        printDevice = null;
+                        throw new Error("USB Printer-এর সঠিক পোর্ট পাওয়া যায়নি!");
+                    }
+                    
+                    await printDevice.claimInterface(interfaceNumber);
+                    printInterface = interfaceNumber;
+                    printEndpoint = endpointNumber;
+                }
+
+                // Create QR Code ESC/POS Command Bytes
+                const qrData = "upi://pay?pa=paytmqr6szv5j@ptys&pn=suraj molla&cu=INR";
+                const qrLen = qrData.length + 3;
+                const pL = qrLen & 0xFF;
+                const pH = (qrLen >> 8) & 0xFF;
+                
+                // ESC/POS commands to print QR Code
+                const qrBytesArray = [
+                    0x1B, 0x61, 0x01, // Center align
+                    0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00, // Model 2
+                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06,       // Size (6)
+                    0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31,       // Error Correction (M=49)
+                    0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30            // Store Data Header
+                ];
+                
+                for(let i=0; i<qrData.length; i++) {
+                    qrBytesArray.push(qrData.charCodeAt(i));
+                }
+                
+                qrBytesArray.push(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30); // Print QR
+                
+                // Final Footer Text
+                let footerText = "\nSCAN TO PAY VIA UPI\n--------------------------------\nTHANK YOU ! VISIT AGAIN\nGoods once sold\n\n\n\n";
+
+                // Combine All Bytes Together
+                const encoder = new TextEncoder();
+                const textBytes1 = encoder.encode(receiptText);
+                const qrBytes = new Uint8Array(qrBytesArray);
+                const textBytes2 = encoder.encode(footerText);
+
+                let finalData = new Uint8Array(textBytes1.length + qrBytes.length + textBytes2.length);
+                finalData.set(textBytes1, 0);
+                finalData.set(qrBytes, textBytes1.length);
+                finalData.set(textBytes2, textBytes1.length + qrBytes.length);
+                
+                // Send Data to the Printer Endpoint
+                await printDevice.transferOut(printEndpoint, finalData);
+                
+                // We keep the device open so the next print click works instantly.
+
+            } catch (error) {
+                console.error(error);
+                printDevice = null; // Reset connection status if it fails
+                alert("USB (OTG) প্রিন্টার কানেক্ট করা সম্ভব হয়নি! ক্যাবল চেক করুন। \n(" + error.message + ")\n\nবিকল্প হিসেবে নরমাল সিস্টেম প্রিন্ট ওপেন করা হচ্ছে...");
+                triggerPrint('print-invoice');
+            }
+        };
+
+        window.goToPage = (pageId) => {
+            // ==========================================
+            // NEW PASSWORD PROTECTION LOGIC (পাসওয়ার্ড লজিক)
+            // ==========================================
+            const ADMIN_PIN = "12345"; // <--- এখানে আপনি আপনার ইচ্ছামত পাসওয়ার্ড বসাতে পারেন।
+            const unlockedPages = ['page-home', 'page-sell', 'page-invoice'];
+
+            if (!unlockedPages.includes(pageId)) {
+                let enteredPin = prompt("এই পেজটি ওপেন করতে পাসওয়ার্ড দিন / Enter Admin Password:");
+                if (enteredPin !== ADMIN_PIN) {
+                    alert("ভুল পাসওয়ার্ড! / Incorrect Password! Access Denied.");
+                    return; // পাসওয়ার্ড ভুল হলে পেজ খুলবে না।
+                }
+            }
+            // ==========================================
+
+            if(html5QrCode) { 
+                try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
+                html5QrCode = null; 
+            } 
+            document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(pageId).classList.add('active-page');
+            document.querySelectorAll('.foot-item').forEach(i => i.classList.remove('active'));
+            
+            if(pageId === 'page-home') {
+                document.querySelectorAll('.foot-item')[0].classList.add('active');
+                // যখনই Home পেজে যাবে, তখন Add Form-এর ডাটা ক্লিয়ার হয়ে যাবে, যাতে Edit এর পর আবার নতুন কিছু অ্যাড করতে গেলে আগের ডাটা লাল না থাকে।
+                document.getElementById('edit-id').value = "";
+                document.getElementById('form-title').innerText = "Add New Product";
+                ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+                
+                document.getElementById('edit-l-id').value = "";
+                document.getElementById('l-form-title').innerText = "Add Loose Product";
+                ['l-name','l-price','l-stock','l-cat','l-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+            }
+            if(pageId === 'page-view-med') document.querySelectorAll('.foot-item')[1].classList.add('active');
+            if(pageId === 'page-sell') document.querySelectorAll('.foot-item')[2].classList.add('active');
+            if(pageId === 'page-update-stock') { 
+                selectedMedForUpdate = null; 
+                document.getElementById('update-result-card').style.display = 'none';
+                document.getElementById('stock-search-input').value = "";
+            }
+            if(pageId === 'page-report') {
+                document.querySelectorAll('.foot-item')[3].classList.add('active');
+                fetchDashboardStats();
+            }
+        };
+
+        // --- BARCODE PREVIEW LOGIC ---
+        window.prepareBarcodePrint = () => {
+            const text = document.getElementById('gen-barcode-text').value;
+            const qty = parseInt(document.getElementById('gen-barcode-qty').value);
+            if(!text || !qty || qty <= 0) return alert("Enter valid text and quantity!");
+
+            const printArea = document.getElementById('barcode-preview-area');
+            printArea.innerHTML = "";
+
+            for(let i=0; i<qty; i++) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "print-barcode-item";
+                const svgId = `barcode-svg-${i}`;
+                itemDiv.innerHTML = `<svg id="${svgId}"></svg>`;
+                printArea.appendChild(itemDiv);
+                
+                JsBarcode(`#${svgId}`, text, { format: "CODE128", width: 1.5, height: 40, displayValue: true, fontSize: 12 });
+            }
+            document.getElementById('btn-actual-print').style.display = "block";
+        };
+
+        // --- EXPORT LOGIC ---
+        window.exportStockToExcel = () => {
+            const data = medicines.map(m => ({ 'Product Name': m.name, 'Price': m.price, 'Stock': m.stock, 'Barcode': m.barcode || 'N/A', 'Expiry Date': m.expiryDate || 'N/A', 'Category': m.category || 'N/A' }));
+            downloadXL(data, "Inventory_Report");
+        };
+
+        window.exportSalesReport = (type) => {
+            let today = new Date().toISOString().split('T')[0];
+            let y = new Date(); y.setDate(y.getDate() - 1);
+            let yesterday = y.toISOString().split('T')[0];
+            let filtered =[];
+
+            if(type === 'today') filtered = allSalesForExport.filter(s => s.date === today);
+            else if(type === 'yesterday') filtered = allSalesForExport.filter(s => s.date === yesterday);
+            else if(type === 'month') filtered = allSalesForExport.filter(s => s.date.startsWith(today.slice(0, 7)));
+
+            const data =[];
+            filtered.forEach(sale => {
+                sale.items.forEach(item => { 
+                    let sellRate = item.rate || item.price;
+                    data.push({ 'Date': sale.date, 'Customer': sale.customerName, 'Product': item.name, 'Qty': item.qty, 'MRP': item.price, 'Sale Price': sellRate, 'Total': item.qty * sellRate, 'Grand Total': sale.total, 'Payment': sale.payment }); 
+                });
+            });
+            downloadXL(data, `Sales_Report_${type}`);
+        };
+
+        window.exportFilteredToExcel = (type) => {
+            let today = new Date().toISOString().split('T')[0];
+            let list =[];
+            if(type === 'expired') list = medicines.filter(m => m.expiryDate && m.expiryDate <= today);
+            else if(type === 'low') list = medicines.filter(m => m.stock > 0 && m.stock < 5);
+            else if(type === 'no') list = medicines.filter(m => m.stock <= 0);
+
+            const data = list.map(m => ({ 'Product Name': m.name, 'Price': m.price, 'Current Stock': m.stock, 'Expiry': m.expiryDate, 'Category': m.category }));
+            downloadXL(data, `${type}_Products_Report`);
+        };
+
+        function downloadXL(data, filename) {
+            if(data.length === 0) return alert("No data available!");
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+            XLSX.writeFile(workbook, `${filename}_${new Date().toLocaleDateString()}.xlsx`);
+        }
+
+        // --- SCANNER LOGIC ---
+        window.startScanner = (inputId, autoSell = false, isUpdate = false) => {
+            let readerId = autoSell ? "reader-sell" : (isUpdate ? "reader-update" : "reader");
+            if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} }
+            html5QrCode = new Html5Qrcode(readerId);
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText) => {
+                    document.getElementById(inputId).value = decodedText;
+                    if(autoSell) handleBarcodeSell(decodedText);
+                    else if(isUpdate) handleBarcodeUpdate(decodedText);
+                    else { 
+                        playSuccess(); 
+                        try { html5QrCode.stop().catch(e=>{}); } catch(e){} 
+                        html5QrCode = null; 
+                    }
+                }
+            ).catch(err => console.log(err));
+        };
+
+        // --- UPDATE STOCK LOGIC ---
+        function handleBarcodeUpdate(barcode) {
+            const med = medicines.find(m => m.barcode === barcode);
+            if(med) { 
+                playSuccess(); 
+                if(html5QrCode) { try { html5QrCode.stop().catch(e=>{}); } catch(e){} html5QrCode = null; } 
+                showProductInUpdateCard(med); 
+            } 
+            else { playError(); alert("Product not found!"); }
+        }
+        window.handleBarcodeUpdate = handleBarcodeUpdate;
+
+        window.searchToUpdate = () => {
+            const term = document.getElementById('stock-search-input').value.toLowerCase();
+            const popup = document.getElementById('update-popup');
+            popup.innerHTML = ""; if(!term) return;
+            const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
+            filtered.forEach(m => {
+                const div = document.createElement('div'); div.className = "search-item";
+                div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
+                div.onclick = () => showProductInUpdateCard(m);
+                popup.appendChild(div);
+            });
+        };
+
+        function showProductInUpdateCard(med) {
+            selectedMedForUpdate = med;
+            document.getElementById('update-popup').innerHTML = "";
+            document.getElementById('stock-search-input').value = med.name;
+            document.getElementById('update-result-card').style.display = 'block';
+            document.getElementById('u-img').src = med.imgUrl || 'https://via.placeholder.com/80';
+            document.getElementById('u-name').innerText = med.name;
+            document.getElementById('u-barcode').innerText = "Barcode: " + (med.barcode || 'N/A');
+            document.getElementById('u-current-stock').innerText = med.stock;
+            document.getElementById('u-new-qty').value = 0;
+            document.getElementById('u-view-btn').onclick = () => viewMedicine(med.id);
+            document.getElementById('u-edit-btn').onclick = () => {
+                if(med.isLoose) editLooseMed(med.id); else editMed(med.id);
+            };
+        }
+
+        window.saveStockQuick = async () => {
+            if(!selectedMedForUpdate) return;
+            const addQty = parseFloat(document.getElementById('u-new-qty').value); // parseFloat for loose items
+            if(isNaN(addQty)) return alert("Enter valid quantity");
+            const newTotalStock = selectedMedForUpdate.stock + addQty;
+            await updateDoc(doc(db, "medicines", selectedMedForUpdate.id), { stock: newTotalStock });
+            playSuccess(); showMsg("Stock Updated Successfully!");
+            document.getElementById('update-result-card').style.display = 'none';
+            document.getElementById('stock-search-input').value = "";
+        };
+
+        // --- SELL LOGIC ---
+        function handleBarcodeSell(barcode) {
+            const med = medicines.find(m => m.barcode === barcode);
+            if(med) { playSuccess(); selectMedForQty(med); } else { playError(); alert("Product not found!"); }
+        }
+        window.handleBarcodeSell = handleBarcodeSell;
+
+        // GENERAL SEARCH (All Products)
+        window.searchToSell = () => {
+            const term = document.getElementById('sell-search').value.toLowerCase();
+            const popup = document.getElementById('sell-popup');
+            popup.innerHTML = ""; if(!term) return;
+            const filtered = medicines.filter(m => m.name.toLowerCase().includes(term) || (m.barcode && m.barcode.includes(term)));
+            filtered.forEach(m => {
+                const div = document.createElement('div'); div.className = "search-item";
+                div.innerHTML = `<span>${m.name}</span> <b>Stock: ${m.stock}</b>`;
+                div.onclick = () => selectMedForQty(m);
+                popup.appendChild(div);
+            });
+        };
+
+        // NEW: LOOSE PRODUCT SEARCH ONLY
+        window.searchLooseToSell = () => {
+            const term = document.getElementById('sell-loose-search').value.toLowerCase();
+            const popup = document.getElementById('sell-loose-popup');
+            popup.innerHTML = ""; if(!term) return;
+            // Filter strictly for loose products matching the search text
+            const filtered = medicines.filter(m => m.isLoose && m.name.toLowerCase().includes(term));
+            filtered.forEach(m => {
+                const div = document.createElement('div'); div.className = "search-item";
+                div.innerHTML = `<span>${m.name} (Loose)</span> <b>Stock: ${m.stock} Kg</b>`;
+                div.onclick = () => { 
+                    selectMedForQty(m); 
+                    document.getElementById('sell-loose-search').value = ""; 
+                    popup.innerHTML = ""; 
+                };
+                popup.appendChild(div);
+            });
+        };
+
+        function selectMedForQty(med) {
+            tempSelectedMed = med;
+            document.getElementById('sell-popup').innerHTML = "";
+            document.getElementById('sell-loose-popup').innerHTML = "";
+            document.getElementById('sell-search').value = med.name;
+            
+            let sellRate = med.rate || med.price;
+            document.getElementById('selected-med-name').innerText = med.name + " (MRP: ₹" + med.price + ", Rate: ₹" + sellRate + (med.isLoose ? "/Kg" : "") + ")";
+            document.getElementById('qty-box').style.display = "block";
+            
+            // GRAM / KG LOGIC HERE
+            if(med.isLoose) {
+                document.getElementById('loose-unit').style.display = "inline-block";
+                document.getElementById('loose-unit').value = "gm"; // Default to Gram
+                document.getElementById('input-qty').placeholder = "Enter Qty (Gm/Kg)";
+                document.getElementById('input-qty').value = ""; // Let user type amount like 300
+            } else {
+                document.getElementById('loose-unit').style.display = "none";
+                document.getElementById('input-qty').placeholder = "Qty";
+                document.getElementById('input-qty').value = 1;
+            }
+            
+            document.getElementById('input-qty').focus();
+        }
+        window.selectMedForQty = selectMedForQty;
+
+        window.confirmAddToCart = () => {
+            if(!tempSelectedMed) return alert("Select a product first!");
+            if(tempSelectedMed.stock <= 0) { playError(); return alert("Stock 0!"); }
+            
+            let qty = parseFloat(document.getElementById('input-qty').value);
+            if(!qty || qty <= 0) return alert("Enter valid quantity!");
+            
+            // GRAM TO KG CONVERSION LOGIC
+            if(tempSelectedMed.isLoose) {
+                const unit = document.getElementById('loose-unit').value;
+                if (unit === 'gm') {
+                    qty = qty / 1000; // Convert Gram to Kg internally for pricing
+                }
+            }
+
+            if(qty > tempSelectedMed.stock) return alert("Not enough stock! Available: " + tempSelectedMed.stock + (tempSelectedMed.isLoose ? " Kg" : " pcs"));
+            
+            playSuccess(); 
+            const existing = cart.find(c => c.id === tempSelectedMed.id);
+            if(existing) existing.qty += qty; else cart.push({ ...tempSelectedMed, qty: qty });
+            renderCart(); cancelSelection();
+        };
+
+        function renderCart() {
+            let html = ""; let subtotal = 0;
+            cart.forEach((item, index) => {
+                let sellRate = item.rate || item.price;
+                let total = sellRate * item.qty; subtotal += total;
+                // SHOW GRAM OR KG BEAUTIFULLY IN CART
+                let qtyText = item.isLoose ? (item.qty < 1 ? (item.qty * 1000) + " Gm" : item.qty + " Kg") : item.qty;
+                let priceText = item.isLoose ? sellRate + "/Kg" : sellRate;
+                
+                html += `<div class="cart-item">
+                    <div><b>${item.name}</b><br><small>MRP: ₹${item.price} | Rate: ₹${priceText} x ${qtyText}</small></div>
+                    <div><b>${total.toFixed(2)}</b> <i class="fas fa-trash" style="color:red; margin-left:10px; cursor:pointer;" onclick="removeFromCart(${index})"></i></div>
+                </div>`;
+            });
+            document.getElementById('cart-render').innerHTML = html;
+            document.getElementById('subtotal').innerText = subtotal.toFixed(2);
+            calculateTotal();
+        }
+
+        window.openCustomerForm = () => {
+            if(cart.length === 0) return alert("Cart is empty!");
+            document.getElementById('customerModal').style.display = 'flex';
+        };
+
+        window.finalizeSaleAndInvoice = async () => {
+            if (cart.length === 0) return;
+            const custName = document.getElementById('cust-name').value || "Walk-in";
+            const custPhone = document.getElementById('cust-phone').value || "N/A";
+            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
+            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; // NEW: Flat Discount Capture
+            const grand = parseFloat(document.getElementById('grand-total').innerText) || 0;
+            const today = new Date().toISOString().split('T')[0];
+            const invNo = Math.floor(100000 + Math.random() * 900000); 
+
+            // Include discountAmt inside sale object so it reflects accurately
+            const saleObj = { customerName: custName, customerPhone: custPhone, items: [...cart], subtotal: sub, discount: discPercent, discountAmt: discAmt, total: grand, payment: document.getElementById('pay-mode').value, date: today, invNo: invNo };
+
+            renderInvoice(saleObj);
+            document.getElementById('customerModal').style.display = 'none';
+            goToPage('page-invoice'); 
+
+            try {
+                await addDoc(collection(db, "sales"), { ...saleObj, timestamp: serverTimestamp() });
+                for (let item of cart) {
+                    await updateDoc(doc(db, "medicines", item.id), { stock: (item.stock - item.qty) });
+                }
+                cart =[]; renderCart();
+            } catch (err) { console.error("Database Error:", err); }
+        };
+
+        function renderInvoice(sale) {
+            document.getElementById('inv-no-display').innerText = sale.invNo;
+            document.getElementById('inv-date-display').innerText = sale.date;
+            document.getElementById('inv-cust-name').innerText = sale.customerName;
+            document.getElementById('inv-cust-phone').innerText = sale.customerPhone;
+            document.getElementById('inv-sub-display').innerText = sale.subtotal.toFixed(2);
+            document.getElementById('inv-total-display').innerText = sale.total.toFixed(2);
+            document.getElementById('inv-disc-percent').innerText = sale.discount;
+            document.getElementById('inv-disc-amt').innerText = (sale.discountAmt || 0).toFixed(2); // SHOW FLAT DISCOUNT IN BILL
+
+            let html = "";
+            sale.items.forEach((item) => { 
+                let sellRate = item.rate || item.price;
+                let qtyText = item.isLoose ? (item.qty < 1 ? (item.qty * 1000) + "g" : item.qty + "kg") : item.qty;
+                html += `<tr>
+                    <td>
+                        <span class="item-name-part">${item.name}</span><br>
+                        <small style="font-size:10px; color:#555;">MRP: ${item.price} | Rate: ${sellRate}</small>
+                    </td>
+                    <td class="text-center">${qtyText}</td>
+                    <td class="text-right">${(item.qty * sellRate).toFixed(2)}</td>
+                </tr>`; 
+            });
+            document.getElementById('inv-items-render').innerHTML = html;
+        }
+
+        // --- FETCH REALTIME DATA ---
+        async function fetchDashboardStats() {
+            const snap = await getDocs(collection(db, "sales"));
+            let today = new Date().toISOString().split('T')[0];
+            let y = new Date(); y.setDate(y.getDate() - 1);
+            let yesterday = y.toISOString().split('T')[0];
+            let currentMonth = today.slice(0, 7);
+            let todayTotal = 0, yestTotal = 0, monthTotal = 0;
+            allSalesForExport =[];
+
+            snap.forEach(doc => {
+                const s = doc.data(); allSalesForExport.push(s);
+                if(s.date === today) todayTotal += s.total;
+                if(s.date === yesterday) yestTotal += s.total;
+                if(s.date.startsWith(currentMonth)) monthTotal += s.total;
+            });
+
+            document.getElementById('stat-today').innerText = todayTotal.toFixed(2);
+            document.getElementById('stat-yest').innerText = yestTotal.toFixed(2);
+            document.getElementById('stat-month').innerText = monthTotal.toFixed(2);
+            
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar', data: { labels:['Yesterday', 'Today', 'Monthly'], datasets: [{ label: 'Sales', data:[yestTotal, todayTotal, monthTotal], backgroundColor:['#e74c3c', '#d63384', '#3498db'], borderRadius: 5 }] },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        onSnapshot(collection(db, "medicines"), (snapshot) => {
+            medicines =[]; let mainHtml = ""; let expiredHtml = ""; let lowHtml = ""; let noHtml = ""; let looseHtml = "";
+            let expiredCount = 0; let lowCount = 0; let noCount = 0; let todayStr = new Date().toISOString().split('T')[0];
+
+            snapshot.forEach(doc => {
+                let m = doc.data(); m.id = doc.id; medicines.push(m);
+                
+                const rowHtml = `
+                    <div class="med-row">
+                        <img src="${m.imgUrl || 'https://via.placeholder.com/50'}">
+                        <div class="med-info"><h4>${m.name}</h4><span>${m.category} | ${m.barcode || (m.isLoose ? 'Loose Kg/Gm' : 'No BC')}</span></div>
+                        <div style="font-weight:bold;">${m.rate || m.price}</div>
+                        <div style="color:${m.stock < 5 ? 'red' : 'green'}">${m.stock}</div>
+                        <div class="action-btns-cell">
+                            <button class="btn-action btn-view" onclick="viewMedicine('${m.id}')"><i class="fas fa-eye"></i></button>
+                            <button class="btn-action btn-edit" onclick="${m.isLoose ? `editLooseMed('${m.id}')` : `editMed('${m.id}')`}"><i class="fas fa-edit"></i></button>
+                            <button class="btn-action btn-del" onclick="deleteMed('${m.id}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>`;
+                
+                // Add to main stock view
+                mainHtml += rowHtml;
+
+                // Add to loose stock view if it's a loose product
+                if(m.isLoose) { looseHtml += rowHtml; }
+
+                if(m.expiryDate && m.expiryDate <= todayStr) { expiredCount++; expiredHtml += `<div class="med-row"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}"><div class="med-info"><h4>${m.name}</h4><span>${m.barcode || ''}</span></div><div>${m.price}</div><div>${m.stock}</div><div style="color:red; font-weight:bold; font-size:12px;">${m.expiryDate}</div></div>`; }
+                if(m.stock > 0 && m.stock < 5) { lowCount++; lowHtml += rowHtml; }
+                if(m.stock <= 0) { noCount++; noHtml += rowHtml; }
+            });
+
+            document.getElementById('med-list-render').innerHTML = mainHtml;
+            document.getElementById('loose-list-render').innerHTML = looseHtml || "<p style='padding:10px;'>No Loose Products</p>";
+            document.getElementById('expired-list').innerHTML = expiredHtml || "<p style='padding:10px;'>No Expired Items</p>";
+            document.getElementById('lowstock-list').innerHTML = lowHtml || "<p style='padding:10px;'>No Low Stock Items</p>";
+            document.getElementById('nostock-list').innerHTML = noHtml || "<p style='padding:10px;'>All Items in Stock</p>";
+            
+            document.getElementById('total-med-count').innerText = "Total: " + snapshot.size;
+            document.getElementById('expiry-count').innerText = expiredCount + " items";
+            document.getElementById('low-count').innerText = lowCount + " items";
+            document.getElementById('no-count').innerText = noCount + " items";
+        });
+
+        // --- ADD/EDIT PRODUCT LOGIC ---
+        window.saveMedicine = async () => {
+            const id = document.getElementById('edit-id').value;
+            const data = {
+                barcode: document.getElementById('m-barcode').value, name: document.getElementById('m-name').value, price: parseFloat(document.getElementById('m-price').value) || 0,
+                rate: parseFloat(document.getElementById('m-rate').value) || 0, stock: parseInt(document.getElementById('m-stock').value) || 0, expiryDate: document.getElementById('m-expiry').value,
+                category: document.getElementById('m-cat').value, imgUrl: document.getElementById('m-img').value, isLoose: false
+            };
+            if(!data.name || !data.price) return alert("Fill Name and Price!");
+            if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
+            showMsg("Saved Successfully!");
+            
+            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
+            document.getElementById('edit-id').value = "";
+            document.getElementById('form-title').innerText = "Add New Product";
+            ['m-barcode','m-name','m-price','m-rate','m-stock','m-expiry','m-cat','m-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+        };
+
+        // NEW: SAVE LOOSE PRODUCT LOGIC
+        window.saveLooseProduct = async () => {
+            const id = document.getElementById('edit-l-id').value;
+            const data = {
+                barcode: "", name: document.getElementById('l-name').value, 
+                price: parseFloat(document.getElementById('l-price').value) || 0,
+                rate: parseFloat(document.getElementById('l-price').value) || 0, // Rate same as price for loose
+                stock: parseFloat(document.getElementById('l-stock').value) || 0, // Using parseFloat for kg
+                expiryDate: "", category: document.getElementById('l-cat').value, 
+                imgUrl: document.getElementById('l-img').value,
+                isLoose: true // Flag to identify kg/gram products
+            };
+            if(!data.name || !data.price) return alert("Fill Name and Price!");
+            if(id) await updateDoc(doc(db, "medicines", id), data); else await addDoc(collection(db, "medicines"), data);
+            showMsg("Loose Product Saved!");
+            
+            // ডাটা সেভ হওয়ার পর ফর্ম ক্লিয়ার করে দেওয়া হচ্ছে
+            document.getElementById('edit-l-id').value = "";
+            document.getElementById('l-form-title').innerText = "Add Loose Product";
+            ['l-name','l-price','l-stock','l-cat','l-img'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ""; });
+        };
+
+        window.viewMedicine = (id) => {
+            const m = medicines.find(item => item.id === id);
+            let h = `<div style="text-align:center;"><img src="${m.imgUrl || 'https://via.placeholder.com/50'}" style="width:100px; height:100px; border-radius:10px; object-fit:cover;"></div>
+                <h3 style="color:var(--primary-color); text-align:center; margin:10px 0;">${m.name}</h3>
+                <table class="report-table" style="width:100%;"><tr><td><b>Price</b></td><td>${m.price} ${m.isLoose ? '/ Kg' : ''}</td></tr><tr><td><b>Sale Rate</b></td><td>${m.rate || m.price}</td></tr><tr><td><b>Stock</b></td><td>${m.stock} ${m.isLoose ? 'Kg' : ''}</td></tr><tr><td><b>Barcode</b></td><td>${m.barcode || 'N/A'}</td></tr><tr><td><b>Category</b></td><td>${m.category || 'N/A'}</td></tr><tr><td><b>Expiry</b></td><td style="color:red;">${m.expiryDate || 'N/A'}</td></tr></table>`;
+            document.getElementById('modal-data-render').innerHTML = h; document.getElementById('detailModal').style.display = 'flex';
+        };
+
+        window.editMed = (id) => {
+            const m = medicines.find(item => item.id === id);
+            document.getElementById('edit-id').value = m.id; document.getElementById('m-barcode').value = m.barcode || ""; document.getElementById('m-name').value = m.name;
+            document.getElementById('m-price').value = m.price; document.getElementById('m-rate').value = m.rate || ""; document.getElementById('m-stock').value = m.stock;
+            document.getElementById('m-expiry').value = m.expiryDate || ""; document.getElementById('m-cat').value = m.category || ""; document.getElementById('m-img').value = m.imgUrl || "";
+            document.getElementById('form-title').innerText = "Edit Product"; goToPage('page-add-med');
+        };
+
+        // NEW: EDIT LOOSE PRODUCT
+        window.editLooseMed = (id) => {
+            const m = medicines.find(item => item.id === id);
+            document.getElementById('edit-l-id').value = m.id; 
+            document.getElementById('l-name').value = m.name;
+            document.getElementById('l-price').value = m.price; 
+            document.getElementById('l-stock').value = m.stock;
+            document.getElementById('l-cat').value = m.category || ""; 
+            document.getElementById('l-img').value = m.imgUrl || "";
+            document.getElementById('l-form-title').innerText = "Edit Loose Product"; 
+            goToPage('page-add-loose');
+        };
+
+        window.deleteMed = async (id) => { if(confirm("Are you sure?")) await deleteDoc(doc(db, "medicines", id)); };
+
+        // --- REPORT LOGIC ---
+        window.loadReport = async () => {
+            const selDate = document.getElementById('report-date').value;
+            if(!selDate) return alert("Select a date!");
+            const snap = await getDocs(query(collection(db, "sales"), where("date", "==", selDate)));
+            salesList =[]; let totalAmt = 0; let html = ""; let sl = 1;
+            snap.forEach(doc => {
+                const s = doc.data(); s.docId = doc.id; salesList.push(s); totalAmt += s.total;
+                html += `<tr><td>${sl++}</td><td>${s.customerName}</td><td><b>₹${s.total.toFixed(2)}</b></td><td class="action-btns-cell"><button onclick="viewSaleDetails('${s.docId}')" style="background:var(--info); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">View</button></td></tr>`;
+            });
+            document.getElementById('report-total-amt').innerText = "Total Sale: ₹" + totalAmt.toFixed(2);
+            document.getElementById('report-list').innerHTML = html || "<tr><td colspan='4' style='text-align:center;'>No sales found.</td></tr>";
+        };
+
+        window.viewSaleDetails = (id) => { const sale = salesList.find(s => s.docId === id); if(sale) { renderInvoice(sale); goToPage('page-invoice'); } };
+        window.closeDetailModal = () => document.getElementById('detailModal').style.display = 'none';
+        window.cancelSelection = () => { document.getElementById('qty-box').style.display = "none"; document.getElementById('sell-search').value = ""; document.getElementById('sell-loose-search').value = ""; tempSelectedMed = null; };
+        window.removeFromCart = (index) => { cart.splice(index, 1); renderCart(); };
+        window.resetCart = () => { if(confirm("Clear cart?")) { cart = []; 
+                document.getElementById('discount-amt').value = "0"; // RESET DISCOUNT AMT TOO
+                renderCart(); 
+            } 
+        };
+        
+        // --- ডিসকাউন্ট এবং টোটাল হিসাব করার ফাংশন (UPDATED) ---
+        window.calculateTotal = () => {
+            const sub = parseFloat(document.getElementById('subtotal').innerText) || 0;
+            const discPercent = parseFloat(document.getElementById('discount').value) || 0;
+            const discAmt = parseFloat(document.getElementById('discount-amt').value) || 0; // NEW: Flat Discount Tracker
+            
+            const discFromPercent = (sub * discPercent) / 100;
+            const finalTotal = sub - discFromPercent - discAmt; // Subtracting both percentages and flat amounts
+            
+            document.getElementById('grand-total').innerText = finalTotal > 0 ? finalTotal.toFixed(2) : "0.00";
+        };
+
+        // --- সেভ করার পর সাকসেস মেসেজ দেখানো ---
+        function showMsg(txt) { 
+            document.getElementById('msgText').innerText = txt; 
+            document.getElementById('msgBox').style.display = 'block'; 
+        }
+
+        // --- মেসেজ বক্স বন্ধ করা এবং পেজ রিফ্রেশ করা ---
+        window.closeMsg = () => { 
+            document.getElementById('msgBox').style.display = 'none'; 
+            location.reload(); 
+        };
+
+        // --- ইনভেন্টরি পেজে নাম লিখে সার্চ/ফিল্টার করা ---
+        window.filterMeds = () => {
+            const term = document.getElementById('search-med').value.toLowerCase();
+            document.querySelectorAll('.med-row').forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? "grid" : "none";
+            });
+        };
+
+    </script>
+</body>
+</html>
